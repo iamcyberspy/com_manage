@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Computer Lab Management System</title>
+    <!-- Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <!-- DataTables Bootstrap 5 -->
+    <link href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" rel="stylesheet" />
+    <!-- Google Font Prompt -->
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet" />
+    <style>
+        :root {
+            --primary: #0D6EFD;
+            --secondary: #20C997;
+            --sidebar-bg: #0a1929;
+            --bg: #f8f9fa;
+            --text: #212529;
+            --card-bg: #ffffff;
+            --border: #dee2e6;
+            --hover: #f1f5f9;
+        }
+        .dark-mode {
+            --bg: #1a1a2e;
+            --text: #e0e0e0;
+            --card-bg: #2a2a3c;
+            --border: #3a3a4c;
+            --hover: #2e2e42;
+            --sidebar-bg: #16213e;
+        }
+        body {
+            font-family: 'Prompt', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            transition: background-color 0.3s, color 0.3s;
+            margin: 0;
+            display: flex;
+            min-height: 100vh;
+        }
+        /* Sidebar */
+        .sidebar {
+            width: 260px;
+            background: var(--sidebar-bg);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            z-index: 1040;
+            transition: transform 0.3s;
+            overflow-y: auto;
+        }
+        .sidebar .logo {
+            padding: 1.5rem 1rem;
+            font-size: 1.25rem;
+            font-weight: 600;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .sidebar .nav-link {
+            color: rgba(255, 255, 255, 0.8);
+            padding: 0.75rem 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            transition: 0.2s;
+            border-radius: 0 20px 20px 0;
+            margin-right: 1rem;
+        }
+        .sidebar .nav-link:hover,
+        .sidebar .nav-link.active {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+        }
+        .sidebar .nav-link i {
+            width: 20px;
+            text-align: center;
+        }
+        /* Main content */
+        .main-content {
+            margin-left: 260px;
+            flex: 1;
+            padding: 1.5rem;
+            width: calc(100% - 260px);
+        }
+        /* Cards */
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            transition: background 0.3s;
+        }
+        .btn-primary {
+            background-color: var(--primary);
+            border-color: var(--primary);
+        }
+        .btn-success {
+            background-color: var(--secondary);
+            border-color: var(--secondary);
+        }
+        .btn-outline-primary {
+            color: var(--primary);
+            border-color: var(--primary);
+        }
+        /* Loading overlay */
+        #loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            backdrop-filter: blur(2px);
+        }
+        .spinner-lg {
+            width: 3rem;
+            height: 3rem;
+            border-width: 0.3rem;
+        }
+        /* Toast */
+        .toast-container {
+            position: fixed;
+            bottom: 1rem;
+            right: 1rem;
+            z-index: 1055;
+        }
+        /* Responsive sidebar */
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            .sidebar.show {
+                transform: translateX(0);
+            }
+            .main-content {
+                margin-left: 0;
+                width: 100%;
+            }
+            .sidebar-backdrop {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 1035;
+            }
+            .sidebar.show~.sidebar-backdrop {
+                display: block;
+            }
+        }
+        /* DataTables tweaks */
+        .dataTables_wrapper .dt-buttons {
+            margin-bottom: 0.5rem;
+        }
+        .table th {
+            background: var(--primary);
+            color: white;
+        }
+        .dark-mode .table th {
+            background: #2c3e50;
+        }
+        .cursor-pointer {
+            cursor: pointer;
+        }
+        /* Fix chart container */
+        .chart-container {
+            position: relative;
+            height: 200px;
+        }
+        .chart-container-sm {
+            height: 120px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay">
+        <div class="spinner-border text-light spinner-lg" role="status"></div>
+    </div>
+
+    <!-- Sidebar Backdrop (mobile) -->
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="logo"><i class="fas fa-desktop me-2"></i> Lab Manager</div>
+        <nav class="nav flex-column mt-3">
+            <a class="nav-link active" href="#" data-page="dashboard"><i class="fas fa-home"></i> Dashboard</a>
+            <a class="nav-link" href="#" data-page="usage"><i class="fas fa-edit"></i> บันทึกการใช้งาน</a>
+            <a class="nav-link" href="#" data-page="trainees"><i class="fas fa-users"></i> ผู้เข้าอบรม</a>
+            <a class="nav-link" href="#" data-page="reports"><i class="fas fa-chart-bar"></i> รายงาน</a>
+            <a class="nav-link" href="#" data-page="settings"><i class="fas fa-cog"></i> ข้อมูลพื้นฐาน</a>
+        </nav>
+        <div class="mt-auto p-3">
+            <div class="form-check form-switch text-white">
+                <input class="form-check-input" type="checkbox" id="darkModeToggle">
+                <label class="form-check-label" for="darkModeToggle"><i class="fas fa-moon"></i> Dark Mode</label>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content" id="mainContent">
+        <!-- Navbar top for mobile -->
+        <div class="d-md-none mb-3">
+            <button class="btn btn-outline-primary" id="menuToggle"><i class="fas fa-bars"></i> เมนู</button>
+        </div>
+
+        <!-- Page: Dashboard -->
+        <div id="page-dashboard" class="page">
+            <h3 class="mb-3"><i class="fas fa-tachometer-alt me-2"></i>ภาพรวมระบบ</h3>
+            <div class="row g-3" id="summaryCards"></div>
+            <div class="row g-3 mt-2">
+                <div class="col-lg-8">
+                    <div class="card p-3"><h5>สถิติการใช้งานรายเดือน</h5>
+                        <div class="chart-container"><canvas id="chartMonthly"></canvas></div>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="card p-3"><h5>ใช้งานแยกตามห้อง</h5>
+                        <div class="chart-container"><canvas id="chartRoom"></canvas></div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="card p-3"><h5>แนวโน้มรายวัน</h5>
+                        <div class="chart-container chart-container-sm"><canvas id="chartDaily"></canvas></div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="card p-3"><h5>Top 5 รายวิชา</h5>
+                        <div class="chart-container chart-container-sm"><canvas id="chartTopCourse"></canvas></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Page: Usage Logs -->
+        <div id="page-usage" class="page" style="display:none;">
+            <h3 class="mb-3"><i class="fas fa-edit me-2"></i>บันทึกการใช้งาน</h3>
+            <div class="card p-3 mb-4">
+                <form id="usageForm">
+                    <input type="hidden" id="usageId">
+                    <div class="row g-2">
+                        <div class="col-md-3"><label class="form-label">วันที่</label><input type="date" class="form-control"
+                                id="usageDate" required></div>
+                        <div class="col-md-2"><label>เวลาเริ่ม</label><input type="time" class="form-control" id="timeStart"
+                                required></div>
+                        <div class="col-md-2"><label>เวลาสิ้นสุด</label><input type="time" class="form-control" id="timeEnd"
+                                required></div>
+                        <div class="col-md-3"><label>ห้อง</label><select class="form-select" id="usageRoom" required></select>
+                        </div>
+                        <div class="col-md-3"><label>รายวิชา</label><select class="form-select" id="usageCourse"
+                                required></select></div>
+                        <div class="col-md-3"><label>ผู้รับผิดชอบ</label><select class="form-select" id="usageStaff"
+                                required></select></div>
+                        <div class="col-md-3"><label>หน่วยงาน</label><select class="form-select" id="usageAgency"
+                                required></select></div>
+                        <div class="col-md-2"><label>จำนวนผู้เข้าอบรม</label><input type="number" class="form-control"
+                                id="usageTrainees" value="0"></div>
+                        <div class="col-md-2"><label>เครื่องที่ใช้</label><input type="number" class="form-control"
+                                id="usageMachines" value="0"></div>
+                        <div class="col-md-2"><label>เครื่องชำรุด</label><input type="number" class="form-control"
+                                id="usageBroken" value="0"></div>
+                        <div class="col-md-6"><label>หมายเหตุ</label><input class="form-control" id="usageNote"></div>
+                        <div class="col-12 mt-2">
+                            <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> บันทึก</button>
+                            <button type="button" class="btn btn-outline-secondary" id="clearUsageForm">ล้างข้อมูล</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="card p-3">
+                <table id="usageTable" class="table table-striped w-100">
+                    <thead>
+                        <tr>
+                            <th>วันที่</th>
+                            <th>เวลา</th>
+                            <th>ห้อง</th>
+                            <th>รายวิชา</th>
+                            <th>ผู้รับผิดชอบ</th>
+                            <th>หน่วยงาน</th>
+                            <th>ผู้เข้าอบรม</th>
+                            <th>เครื่องใช้</th>
+                            <th>เครื่องเสีย</th>
+                            <th>จัดการ</th>
+                        </tr>
+                    </thead>
+                </table>
+            </div>
+        </div>
+
+        <!-- Page: Trainees -->
+        <div id="page-trainees" class="page" style="display:none;">
+            <h3><i class="fas fa-users me-2"></i>ผู้เข้าอบรม</h3>
+            <div class="card p-3 mb-3">
+                <form id="traineeForm">
+                    <div class="row g-2">
+                        <div class="col-md-3"><label>ชื่อ-นามสกุล</label><input class="form-control" id="traineeName"
+                                required></div>
+                        <div class="col-md-2"><label>เพศ</label><select class="form-select" id="traineeGender">
+                                <option>ชาย</option>
+                                <option>หญิง</option>
+                            </select></div>
+                        <div class="col-md-2"><label>หน่วยงาน</label><input class="form-control" id="traineeAgency"></div>
+                        <div class="col-md-2"><label>เบอร์โทร</label><input class="form-control" id="traineePhone"></div>
+                        <div class="col-md-2"><label>อีเมล</label><input type="email" class="form-control" id="traineeEmail">
+                        </div>
+                        <div class="col-md-1 d-flex align-items-end"><button class="btn btn-primary w-100"><i
+                                    class="fas fa-plus"></i></button></div>
+                    </div>
+                </form>
+            </div>
+            <div class="card p-3">
+                <table id="traineeTable" class="table table-striped w-100">
+                    <thead>
+                        <tr>
+                            <th>ชื่อ</th>
+                            <th>เพศ</th>
+                            <th>หน่วยงาน</th>
+                            <th>เบอร์โทร</th>
+                            <th>อีเมล</th>
+                            <th>วันที่บันทึก</th>
+                        </tr>
+                    </thead>
+                </table>
+            </div>
+        </div>
+
+        <!-- Page: Reports -->
+        <div id="page-reports" class="page" style="display:none;">
+            <h3><i class="fas fa-chart-bar me-2"></i>รายงาน</h3>
+            <div class="card p-3 mb-3">
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-3"><label>ประเภทรายงาน</label><select class="form-select" id="reportType">
+                            <option value="daily">รายวัน</option>
+                            <option value="monthly">รายเดือน</option>
+                            <option value="room">รายห้อง</option>
+                        </select></div>
+                    <div class="col-md-3"><label>เริ่มวันที่</label><input type="date" class="form-control" id="reportStart">
+                    </div>
+                    <div class="col-md-3"><label>ถึงวันที่</label><input type="date" class="form-control" id="reportEnd"></div>
+                    <div class="col-md-3"><button class="btn btn-primary w-100" id="loadReport"><i
+                                class="fas fa-search"></i> แสดงรายงาน</button></div>
+                </div>
+            </div>
+            <div class="card p-3">
+                <table id="reportTable" class="table table-striped w-100">
+                    <thead id="reportHeader"></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Page: Settings -->
+        <div id="page-settings" class="page" style="display:none;">
+            <h3><i class="fas fa-cog me-2"></i>ข้อมูลพื้นฐาน</h3>
+            <ul class="nav nav-tabs mb-3" id="settingsTab">
+                <li class="nav-item"><a class="nav-link active" data-type="rooms" href="#"><i class="fas fa-door-open"></i>
+                        ห้อง</a></li>
+                <li class="nav-item"><a class="nav-link" data-type="courses" href="#"><i class="fas fa-book"></i>
+                        รายวิชา</a></li>
+                <li class="nav-item"><a class="nav-link" data-type="staffs" href="#"><i class="fas fa-user-tie"></i>
+                        ผู้รับผิดชอบ</a></li>
+                <li class="nav-item"><a class="nav-link" data-type="agencies" href="#"><i class="fas fa-building"></i>
+                        หน่วยงาน</a></li>
+            </ul>
+            <div id="settingsContent"></div>
+        </div>
+    </main>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- ============================================================ -->
+    <!-- FIREBASE SDK (compat) + INIT                                 -->
+    <!-- ============================================================ -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js">
+    </script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js">
+    </script>
+
+    <!-- Scripts -->
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js">
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js">
+    </script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js">
+    </script>
+    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js">
+    </script>
+    <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js">
+    </script>
+    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.bootstrap5.min.js">
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js">
+    </script>
+    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js">
+    </script>
+    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js">
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11">
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js">
+    </script>
+
+    <script>
+        // ================================================================
+        //  FIREBASE CONFIG & INIT
+        // ================================================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyC-1NOzBEP1JegD6eziF5RI238x90FAoeE",
+            authDomain: "computer-lab-management-88e10.firebaseapp.com",
+            databaseURL: "https://computer-lab-management-88e10-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "computer-lab-management-88e10",
+            storageBucket: "computer-lab-management-88e10.firebasestorage.app",
+            messagingSenderId: "877283444187",
+            appId: "1:877283444187:web:706f7076fa2d8630b2d3fe"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // ================================================================
+        //  GLOBAL STATE
+        // ================================================================
+        let usageTable, traineeTable, reportTable;
+        let charts = {};
+        let currentSettingsType = 'rooms';
+
+        const $loading = document.getElementById('loading-overlay');
+
+        function showLoading() { $loading.style.display = 'flex'; }
+
+        function hideLoading() { $loading.style.display = 'none'; }
+
+        function showToast(message, type = 'success') {
+            const bg = type === 'success' ? 'bg-success' : 'bg-danger';
+            const html =
+                `<div class="toast align-items-center text-white ${bg} border-0" role="alert"><div class="d-flex"><div class="toast-body">${message}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div>`;
+            document.getElementById('toastContainer').insertAdjacentHTML('beforeend', html);
+            const toastEl = document.querySelector('#toastContainer .toast:last-child');
+            const toast = new bootstrap.Toast(toastEl, { delay: 3000 });
+            toast.show();
+            toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
+        }
+
+        // ================================================================
+        //  FIREBASE HELPERS (CRUD)
+        // ================================================================
+        function ref(path) { return db.ref(path); }
+
+        async function dbGet(path) {
+            const snapshot = await ref(path).once('value');
+            return snapshot.val();
+        }
+
+        async function dbSet(path, data) {
+            await ref(path).set(data);
+        }
+
+        async function dbPush(path, data) {
+            const newRef = ref(path).push();
+            await newRef.set(data);
+            return newRef.key;
+        }
+
+        async function dbUpdate(path, data) {
+            await ref(path).update(data);
+        }
+
+        async function dbDelete(path) {
+            await ref(path).remove();
+        }
+
+        function snapshotToArray(snapshot) {
+            const val = snapshot.val();
+            if (!val) return [];
+            return Object.keys(val).map(key => ({ id: key, ...val[key] }));
+        }
+
+        // ================================================================
+        //  PAGE NAVIGATION
+        // ================================================================
+        document.querySelectorAll('.nav-link[data-page]').forEach(link => {
+            link.addEventListener('click', e => {
+                e.preventDefault();
+                document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+                link.classList.add('active');
+                const page = link.dataset.page;
+                document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
+                document.getElementById(`page-${page}`).style.display = 'block';
+                if (page === 'dashboard') loadDashboard();
+                else if (page === 'usage') loadUsagePage();
+                else if (page === 'trainees') loadTraineePage();
+                else if (page === 'reports') { /* wait for button */ }
+                else if (page === 'settings') loadSettingsPage(currentSettingsType);
+                document.getElementById('sidebar').classList.remove('show');
+                document.getElementById('sidebarBackdrop').style.display = 'none';
+            });
+        });
+
+        document.getElementById('menuToggle').addEventListener('click', () => {
+            document.getElementById('sidebar').classList.add('show');
+            document.getElementById('sidebarBackdrop').style.display = 'block';
+        });
+        document.getElementById('sidebarBackdrop').addEventListener('click', () => {
+            document.getElementById('sidebar').classList.remove('show');
+            document.getElementById('sidebarBackdrop').style.display = 'none';
+        });
+
+        document.getElementById('darkModeToggle').addEventListener('change', e => {
+            document.body.classList.toggle('dark-mode', e.target.checked);
+        });
+
+        // ================================================================
+        //  DASHBOARD
+        // ================================================================
+        async function loadDashboard() {
+            showLoading();
+            try {
+                const usageSnap = await db.ref('usage').once('value');
+                const usage = snapshotToArray(usageSnap);
+
+                const totalUsage = usage.length;
+                const totalTrainees = usage.reduce((sum, r) => sum + (r['จำนวนผู้เข้าอบรม'] || 0), 0);
+                const totalMachines = usage.reduce((sum, r) => sum + (r['จำนวนเครื่องที่ใช้งาน'] || 0), 0);
+                const totalBroken = usage.reduce((sum, r) => sum + (r['จำนวนเครื่องชำรุด'] || 0), 0);
+
+                document.getElementById('summaryCards').innerHTML = `
+                    <div class="col-md-3"><div class="card p-3 text-center"><h2 class="text-primary">${totalUsage}</h2><p>ครั้งที่ใช้งานทั้งหมด</p></div></div>
+                    <div class="col-md-3"><div class="card p-3 text-center"><h2 class="text-success">${totalTrainees}</h2><p>ผู้เข้าอบรมทั้งหมด</p></div></div>
+                    <div class="col-md-3"><div class="card p-3 text-center"><h2 class="text-info">${totalMachines}</h2><p>เครื่องที่ใช้งาน</p></div></div>
+                    <div class="col-md-3"><div class="card p-3 text-center"><h2 class="text-danger">${totalBroken}</h2><p>เครื่องชำรุด</p></div></div>
+                `;
+
+                // Monthly stats
+                const monthlyMap = {};
+                usage.forEach(r => {
+                    const d = r['วันที่'] || '';
+                    if (d.length >= 7) {
+                        const m = d.slice(0, 7);
+                        monthlyMap[m] = (monthlyMap[m] || 0) + 1;
+                    }
+                });
+                const months = Object.keys(monthlyMap).sort();
+                const monthlyData = months.map(m => ({ month: m, count: monthlyMap[m] }));
+
+                // Room stats
+                const roomMap = {};
+                usage.forEach(r => {
+                    const room = r['ห้องคอมพิวเตอร์'] || 'ไม่ระบุ';
+                    roomMap[room] = (roomMap[room] || 0) + 1;
+                });
+                const roomData = Object.keys(roomMap).map(k => ({ room: k, count: roomMap[k] }));
+
+                // Daily trend (last 7 days)
+                const dailyMap = {};
+                const sorted = [...usage].filter(r => r['วันที่']).sort((a, b) => a['วันที่'].localeCompare(b['วันที่']));
+                const last7 = sorted.slice(-7);
+                last7.forEach(r => {
+                    const d = r['วันที่'] || '';
+                    dailyMap[d] = (dailyMap[d] || 0) + 1;
+                });
+                const dailyData = Object.keys(dailyMap).sort().map(k => ({ day: k, count: dailyMap[k] }));
+
+                // Top courses
+                const courseMap = {};
+                usage.forEach(r => {
+                    const c = r['รายวิชา'] || 'ไม่ระบุ';
+                    courseMap[c] = (courseMap[c] || 0) + 1;
+                });
+                const topCourses = Object.keys(courseMap).map(k => ({ name: k, count: courseMap[k] }))
+                    .sort((a, b) => b.count - a.count).slice(0, 5);
+
+                renderCharts(monthlyData, roomData, dailyData, topCourses);
+            } catch (err) {
+                showToast('โหลดข้อมูลล้มเหลว: ' + err.message, 'error');
+            }
+            hideLoading();
+        }
+
+        function renderCharts(monthly, room, daily, topCourses) {
+            const destroy = id => { if (charts[id]) { charts[id].destroy();
+                    charts[id] = null; } };
+            const ctx1 = document.getElementById('chartMonthly').getContext('2d');
+            destroy('monthly');
+            charts.monthly = new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: monthly.map(m => m.month),
+                    datasets: [{ label: 'ครั้ง', data: monthly.map(m => m.count), backgroundColor: '#0D6EFD' }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            const ctx2 = document.getElementById('chartRoom').getContext('2d');
+            destroy('room');
+            const colors = ['#0D6EFD', '#20C997', '#ffc107', '#dc3545', '#6610f2', '#fd7e14', '#6f42c1'];
+            charts.room = new Chart(ctx2, {
+                type: 'doughnut',
+                data: {
+                    labels: room.map(r => r.room),
+                    datasets: [{ data: room.map(r => r.count), backgroundColor: colors.slice(0, room.length) }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            const ctx3 = document.getElementById('chartDaily').getContext('2d');
+            destroy('daily');
+            charts.daily = new Chart(ctx3, {
+                type: 'line',
+                data: {
+                    labels: daily.map(d => d.day),
+                    datasets: [{ label: 'ครั้ง', data: daily.map(d => d.count), borderColor: '#20C997',
+                        fill: false }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            const ctx4 = document.getElementById('chartTopCourse').getContext('2d');
+            destroy('topCourse');
+            charts.topCourse = new Chart(ctx4, {
+                type: 'bar',
+                data: {
+                    labels: topCourses.map(c => c.name),
+                    datasets: [{ label: 'ครั้ง', data: topCourses.map(c => c.count), backgroundColor: '#0D6EFD' }]
+                },
+                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        // ================================================================
+        //  USAGE LOGS
+        // ================================================================
+        async function loadUsagePage() {
+            showLoading();
+            try {
+                const [rooms, courses, staffs, agencies, logs] = await Promise.all([
+                    dbGet('rooms').then(s => s ? Object.values(s) : []),
+                    dbGet('courses').then(s => s ? Object.values(s) : []),
+                    dbGet('staffs').then(s => s ? Object.values(s) : []),
+                    dbGet('agencies').then(s => s ? Object.values(s) : []),
+                    dbGet('usage').then(s => s ? Object.values(s) : [])
+                ]);
+                populateSelect('usageRoom', rooms, 'ชื่อห้อง', 'ชื่อห้อง');
+                populateSelect('usageCourse', courses, 'ชื่อรายวิชา', 'ชื่อรายวิชา');
+                populateSelect('usageStaff', staffs, 'ชื่อผู้รับผิดชอบ', 'ชื่อผู้รับผิดชอบ');
+                populateSelect('usageAgency', agencies, 'ชื่อหน่วยงาน', 'ชื่อหน่วยงาน');
+                renderUsageTable(logs);
+            } catch (err) {
+                showToast('โหลดข้อมูลล้มเหลว: ' + err.message, 'error');
+            }
+            hideLoading();
+        }
+
+        function populateSelect(id, items, textField, valueField) {
+            const sel = document.getElementById(id);
+            sel.innerHTML = '<option value="">--เลือก--</option>';
+            items.forEach(item => {
+                const opt = document.createElement('option');
+                opt.value = item[valueField] || item;
+                opt.textContent = item[textField] || item;
+                sel.appendChild(opt);
+            });
+        }
+
+        function renderUsageTable(logs) {
+            if (usageTable) usageTable.destroy();
+            const tbody = document.querySelector('#usageTable tbody');
+            if (tbody) tbody.innerHTML = '';
+            logs.forEach(log => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${log['วันที่']||''}</td>
+                    <td>${log['เวลาเริ่ม']||''}-${log['เวลาสิ้นสุด']||''}</td>
+                    <td>${log['ห้องคอมพิวเตอร์']||''}</td>
+                    <td>${log['รายวิชา']||''}</td>
+                    <td>${log['ผู้รับผิดชอบ']||''}</td>
+                    <td>${log['หน่วยงาน']||''}</td>
+                    <td>${log['จำนวนผู้เข้าอบรม']||0}</td>
+                    <td>${log['จำนวนเครื่องที่ใช้งาน']||0}</td>
+                    <td>${log['จำนวนเครื่องชำรุด']||0}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-warning edit-usage" data-id="${log.id}"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-sm btn-outline-danger delete-usage" data-id="${log.id}"><i class="fas fa-trash"></i></button>
+                    </td>`;
+                document.querySelector('#usageTable tbody').appendChild(tr);
+            });
+            usageTable = $('#usageTable').DataTable({
+                dom: 'Bfrtip',
+                buttons: ['excel', 'print'],
+                language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/th.json' }
+            });
+
+            document.querySelectorAll('.edit-usage').forEach(btn => btn.addEventListener('click', async e => {
+                const id = e.currentTarget.dataset.id;
+                const snap = await db.ref('usage/' + id).once('value');
+                const log = snap.val();
+                if (log) {
+                    document.getElementById('usageId').value = id;
+                    document.getElementById('usageDate').value = log['วันที่'] || '';
+                    document.getElementById('timeStart').value = log['เวลาเริ่ม'] || '';
+                    document.getElementById('timeEnd').value = log['เวลาสิ้นสุด'] || '';
+                    document.getElementById('usageRoom').value = log['ห้องคอมพิวเตอร์'] || '';
+                    document.getElementById('usageCourse').value = log['รายวิชา'] || '';
+                    document.getElementById('usageStaff').value = log['ผู้รับผิดชอบ'] || '';
+                    document.getElementById('usageAgency').value = log['หน่วยงาน'] || '';
+                    document.getElementById('usageTrainees').value = log['จำนวนผู้เข้าอบรม'] || 0;
+                    document.getElementById('usageMachines').value = log['จำนวนเครื่องที่ใช้งาน'] || 0;
+                    document.getElementById('usageBroken').value = log['จำนวนเครื่องชำรุด'] || 0;
+                    document.getElementById('usageNote').value = log['หมายเหตุ'] || '';
+                }
+            }));
+
+            document.querySelectorAll('.delete-usage').forEach(btn => btn.addEventListener('click', async e => {
+                const id = e.currentTarget.dataset.id;
+                const result = await Swal.fire({ title: 'ยืนยันลบ?', icon: 'warning', showCancelButton: true,
+                    confirmButtonText: 'ลบ', cancelButtonText: 'ยกเลิก' });
+                if (result.isConfirmed) {
+                    showLoading();
+                    await dbDelete('usage/' + id);
+                    hideLoading();
+                    showToast('ลบสำเร็จ');
+                    loadUsagePage();
+                }
+            }));
+        }
+
+        document.getElementById('usageForm').addEventListener('submit', async e => {
+            e.preventDefault();
+            const id = document.getElementById('usageId').value;
+            const data = {
+                วันที่: document.getElementById('usageDate').value,
+                เวลาเริ่ม: document.getElementById('timeStart').value,
+                เวลาสิ้นสุด: document.getElementById('timeEnd').value,
+                ห้องคอมพิวเตอร์: document.getElementById('usageRoom').value,
+                รายวิชา: document.getElementById('usageCourse').value,
+                ผู้รับผิดชอบ: document.getElementById('usageStaff').value,
+                หน่วยงาน: document.getElementById('usageAgency').value,
+                จำนวนผู้เข้าอบรม: parseInt(document.getElementById('usageTrainees').value) || 0,
+                จำนวนเครื่องที่ใช้งาน: parseInt(document.getElementById('usageMachines').value) || 0,
+                จำนวนเครื่องชำรุด: parseInt(document.getElementById('usageBroken').value) || 0,
+                หมายเหตุ: document.getElementById('usageNote').value || ''
+            };
+            showLoading();
+            try {
+                if (id) {
+                    await dbUpdate('usage/' + id, data);
+                } else {
+                    await dbPush('usage', data);
+                }
+                showToast('บันทึกสำเร็จ');
+                document.getElementById('usageForm').reset();
+                document.getElementById('usageId').value = '';
+                loadUsagePage();
+            } catch (err) {
+                showToast('บันทึกผิดพลาด: ' + err.message, 'error');
+            }
+            hideLoading();
+        });
+
+        document.getElementById('clearUsageForm').addEventListener('click', () => {
+            document.getElementById('usageForm').reset();
+            document.getElementById('usageId').value = '';
+        });
+
+        // ================================================================
+        //  TRAINEES
+        // ================================================================
+        async function loadTraineePage() {
+            showLoading();
+            try {
+                const snap = await db.ref('trainees').once('value');
+                const data = snapshotToArray(snap);
+                renderTraineeTable(data);
+            } catch (err) {
+                showToast('โหลดข้อมูลล้มเหลว: ' + err.message, 'error');
+            }
+            hideLoading();
+        }
+
+        function renderTraineeTable(data) {
+            if (traineeTable) traineeTable.destroy();
+            const tbody = document.querySelector('#traineeTable tbody');
+            if (tbody) tbody.innerHTML = '';
+            data.forEach(t => {
+                const tr = document.createElement('tr');
+                tr.innerHTML =
+                    `<td>${t['ชื่อ-นามสกุล']||''}</td><td>${t['เพศ']||''}</td><td>${t['หน่วยงาน']||''}</td><td>${t['เบอร์โทร']||''}</td><td>${t['อีเมล']||''}</td><td>${t['Timestamp']||''}</td>`;
+                document.querySelector('#traineeTable tbody').appendChild(tr);
+            });
+            traineeTable = $('#traineeTable').DataTable({
+                dom: 'Bfrtip',
+                buttons: ['excel', 'print'],
+                language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/th.json' }
+            });
+        }
+
+        document.getElementById('traineeForm').addEventListener('submit', async e => {
+            e.preventDefault();
+            const data = {
+                'ชื่อ-นามสกุล': document.getElementById('traineeName').value,
+                'เพศ': document.getElementById('traineeGender').value,
+                'หน่วยงาน': document.getElementById('traineeAgency').value,
+                'เบอร์โทร': document.getElementById('traineePhone').value,
+                'อีเมล': document.getElementById('traineeEmail').value,
+                'Timestamp': new Date().toISOString()
+            };
+            showLoading();
+            try {
+                await dbPush('trainees', data);
+                showToast('บันทึกผู้เข้าอบรมสำเร็จ');
+                document.getElementById('traineeForm').reset();
+                loadTraineePage();
+            } catch (err) {
+                showToast('บันทึกผิดพลาด: ' + err.message, 'error');
+            }
+            hideLoading();
+        });
+
+        // ================================================================
+        //  REPORTS
+        // ================================================================
+        document.getElementById('loadReport').addEventListener('click', async () => {
+            const type = document.getElementById('reportType').value;
+            const start = document.getElementById('reportStart').value;
+            const end = document.getElementById('reportEnd').value;
+            showLoading();
+            try {
+                const snap = await db.ref('usage').once('value');
+                let logs = snapshotToArray(snap);
+                if (start) logs = logs.filter(r => r['วันที่'] >= start);
+                if (end) logs = logs.filter(r => r['วันที่'] <= end);
+
+                let data;
+                if (type === 'daily') {
+                    const map = {};
+                    logs.forEach(r => { const d = r['วันที่'] || 'ไม่ระบุ';
+                        map[d] = (map[d] || 0) + 1; });
+                    data = Object.keys(map).sort().map(k => ({ date: k, count: map[k] }));
+                    renderReportTable(data, 'daily');
+                } else if (type === 'monthly') {
+                    const map = {};
+                    logs.forEach(r => {
+                        const d = r['วันที่'] || '';
+                        if (d.length >= 7) { const m = d.slice(0, 7);
+                            map[m] = (map[m] || 0) + 1; }
+                    });
+                    data = Object.keys(map).sort().map(k => ({ month: k, count: map[k] }));
+                    renderReportTable(data, 'monthly');
+                } else {
+                    const map = {};
+                    logs.forEach(r => { const rm = r['ห้องคอมพิวเตอร์'] || 'ไม่ระบุ';
+                        map[rm] = (map[rm] || 0) + 1; });
+                    data = Object.keys(map).map(k => ({ room: k, count: map[k] }));
+                    renderReportTable(data, 'room');
+                }
+            } catch (err) {
+                showToast('โหลดรายงานล้มเหลว: ' + err.message, 'error');
+            }
+            hideLoading();
+        });
+
+        function renderReportTable(data, type) {
+            if (reportTable) reportTable.destroy();
+            const thead = document.getElementById('reportHeader');
+            const tbody = document.querySelector('#reportTable tbody');
+            thead.innerHTML = '';
+            tbody.innerHTML = '';
+            if (type === 'daily') {
+                thead.innerHTML = '<tr><th>วันที่</th><th>จำนวนครั้ง</th></tr>';
+                data.forEach(d => { const tr = document.createElement('tr');
+                    tr.innerHTML = `<td>${d.date}</td><td>${d.count}</td>`; tbody.appendChild(tr); });
+            } else if (type === 'monthly') {
+                thead.innerHTML = '<tr><th>เดือน</th><th>จำนวนครั้ง</th></tr>';
+                data.forEach(d => { const tr = document.createElement('tr');
+                    tr.innerHTML = `<td>${d.month}</td><td>${d.count}</td>`; tbody.appendChild(tr); });
+            } else {
+                thead.innerHTML = '<tr><th>ห้อง</th><th>จำนวนครั้ง</th></tr>';
+                data.forEach(d => { const tr = document.createElement('tr');
+                    tr.innerHTML = `<td>${d.room}</td><td>${d.count}</td>`; tbody.appendChild(tr); });
+            }
+            reportTable = $('#reportTable').DataTable({
+                dom: 'Bfrtip',
+                buttons: ['excel', 'print'],
+                language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/th.json' }
+            });
+        }
+
+        // ================================================================
+        //  SETTINGS
+        // ================================================================
+        document.getElementById('settingsTab').addEventListener('click', e => {
+            e.preventDefault();
+            if (e.target.dataset.type) {
+                document.querySelectorAll('#settingsTab .nav-link').forEach(l => l.classList.remove('active'));
+                e.target.classList.add('active');
+                currentSettingsType = e.target.dataset.type;
+                loadSettingsPage(currentSettingsType);
+            }
+        });
+
+        async function loadSettingsPage(type) {
+            showLoading();
+            try {
+                const snap = await db.ref(type).once('value');
+                const data = snapshotToArray(snap);
+                let headers, keyField, fields;
+                if (type === 'rooms') {
+                    headers = ['ชื่อห้อง', 'จำนวนเครื่อง', 'สถานะ'];
+                    keyField = 'ชื่อห้อง';
+                    fields = ['ชื่อห้อง', 'จำนวนเครื่องทั้งหมด', 'สถานะ'];
+                } else if (type === 'courses') {
+                    headers = ['ชื่อรายวิชา'];
+                    keyField = 'ชื่อรายวิชา';
+                    fields = ['ชื่อรายวิชา'];
+                } else if (type === 'staffs') {
+                    headers = ['ชื่อผู้รับผิดชอบ', 'ตำแหน่ง'];
+                    keyField = 'ชื่อผู้รับผิดชอบ';
+                    fields = ['ชื่อผู้รับผิดชอบ', 'ตำแหน่ง'];
+                } else {
+                    headers = ['ชื่อหน่วยงาน'];
+                    keyField = 'ชื่อหน่วยงาน';
+                    fields = ['ชื่อหน่วยงาน'];
+                }
+                renderSettingsTable(data, headers, keyField, fields, type);
+            } catch (err) {
+                showToast('โหลดข้อมูลล้มเหลว: ' + err.message, 'error');
+            }
+            hideLoading();
+        }
+
+        function renderSettingsTable(data, headers, keyField, fields, type) {
+            let html = `<button class="btn btn-success mb-2" id="addSettingBtn"><i class="fas fa-plus"></i> เพิ่ม</button>`;
+            html += '<table class="table table-striped" id="settingsTable"><thead><tr>';
+            headers.forEach(h => html += `<th>${h}</th>`);
+            html += '<th>จัดการ</th></tr></thead><tbody>';
+            data.forEach(item => {
+                html += '<tr>';
+                fields.forEach(f => html += `<td>${item[f]||''}</td>`);
+                html += `<td>
+                    <button class="btn btn-sm btn-outline-warning edit-setting" data-id="${item.id}"><i class="fas fa-edit"></i></button>
+                    <button class="btn btn-sm btn-outline-danger delete-setting" data-id="${item.id}"><i class="fas fa-trash"></i></button>
+                </td></tr>`;
+            });
+            html += '</tbody></table>';
+            document.getElementById('settingsContent').innerHTML = html;
+
+            // Destroy existing DataTable if any
+            if ($.fn.dataTable.isDataTable('#settingsTable')) {
+                $('#settingsTable').DataTable().destroy();
+            }
+            $('#settingsTable').DataTable({
+                dom: 'Bfrtip',
+                language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/th.json' }
+            });
+
+            document.getElementById('addSettingBtn').addEventListener('click', () => showSettingModal(type));
+            document.querySelectorAll('.edit-setting').forEach(btn => btn.addEventListener('click', async e => {
+                const id = e.currentTarget.dataset.id;
+                const snap = await db.ref(type + '/' + id).once('value');
+                const item = snap.val();
+                if (item) showSettingModal(type, { id, ...item });
+            }));
+            document.querySelectorAll('.delete-setting').forEach(btn => btn.addEventListener('click', async e => {
+                const id = e.currentTarget.dataset.id;
+                const result = await Swal.fire({ title: 'ยืนยันลบ?', icon: 'warning', showCancelButton: true });
+                if (result.isConfirmed) {
+                    showLoading();
+                    await dbDelete(type + '/' + id);
+                    hideLoading();
+                    showToast('ลบสำเร็จ');
+                    loadSettingsPage(type);
+                }
+            }));
+        }
+
+        async function showSettingModal(type, item = null) {
+            let html, title;
+            if (type === 'rooms') {
+                title = item ? 'แก้ไขห้อง' : 'เพิ่มห้อง';
+                html = `<input id="modal-room-name" class="swal2-input" placeholder="ชื่อห้อง" value="${item?item['ชื่อห้อง']:''}">
+                        <input id="modal-room-capacity" class="swal2-input" type="number" placeholder="จำนวนเครื่อง" value="${item?item['จำนวนเครื่องทั้งหมด']:''}">
+                        <select id="modal-room-status" class="swal2-select">
+                            <option ${item&&item['สถานะ']=='เปิดใช้งาน'?'selected':''}>เปิดใช้งาน</option>
+                            <option ${item&&item['สถานะ']=='ปิดใช้งาน'?'selected':''}>ปิดใช้งาน</option>
+                        </select>`;
+            } else if (type === 'courses') {
+                title = item ? 'แก้ไขรายวิชา' : 'เพิ่มรายวิชา';
+                html =
+                    `<input id="modal-course-name" class="swal2-input" placeholder="ชื่อรายวิชา" value="${item?item['ชื่อรายวิชา']:''}">`;
+            } else if (type === 'staffs') {
+                title = item ? 'แก้ไขผู้รับผิดชอบ' : 'เพิ่มผู้รับผิดชอบ';
+                html =
+                    `<input id="modal-staff-name" class="swal2-input" placeholder="ชื่อ" value="${item?item['ชื่อผู้รับผิดชอบ']:''}">
+                        <input id="modal-staff-position" class="swal2-input" placeholder="ตำแหน่ง" value="${item?item['ตำแหน่ง']:''}">`;
+            } else {
+                title = item ? 'แก้ไขหน่วยงาน' : 'เพิ่มหน่วยงาน';
+                html =
+                    `<input id="modal-agency-name" class="swal2-input" placeholder="ชื่อหน่วยงาน" value="${item?item['ชื่อหน่วยงาน']:''}">`;
+            }
+            const { isConfirmed, value } = await Swal.fire({
+                title,
+                html,
+                showCancelButton: true,
+                confirmButtonText: 'บันทึก',
+                preConfirm: () => {
+                    const data = {};
+                    if (type === 'rooms') {
+                        data['ชื่อห้อง'] = document.getElementById('modal-room-name').value;
+                        data['จำนวนเครื่องทั้งหมด'] = document.getElementById('modal-room-capacity').value;
+                        data['สถานะ'] = document.getElementById('modal-room-status').value;
+                    } else if (type === 'courses') {
+                        data['ชื่อรายวิชา'] = document.getElementById('modal-course-name').value;
+                    } else if (type === 'staffs') {
+                        data['ชื่อผู้รับผิดชอบ'] = document.getElementById('modal-staff-name').value;
+                        data['ตำแหน่ง'] = document.getElementById('modal-staff-position').value;
+                    } else {
+                        data['ชื่อหน่วยงาน'] = document.getElementById('modal-agency-name').value;
+                    }
+                    return data;
+                }
+            });
+            if (isConfirmed && value) {
+                showLoading();
+                try {
+                    const payload = value;
+                    if (item && item.id) {
+                        await dbUpdate(type + '/' + item.id, payload);
+                    } else {
+                        await dbPush(type, payload);
+                    }
+                    showToast('บันทึกสำเร็จ');
+                    loadSettingsPage(type);
+                } catch (err) {
+                    showToast('บันทึกผิดพลาด: ' + err.message, 'error');
+                }
+                hideLoading();
+            }
+        }
+
+        // ================================================================
+        //  INIT
+        // ================================================================
+        // Set today's date in usage form
+        document.getElementById('usageDate').valueAsDate = new Date();
+
+        // Start with dashboard
+        loadDashboard();
+
+        // ================================================================
+        //  REAL-TIME SYNC (optional: auto-refresh when data changes)
+        // ================================================================
+        // We don't auto-refresh to avoid flickering; users can reload manually.
+        // But we listen for changes to keep dashboard live if needed.
+        db.ref('usage').on('value', () => {
+            // Only refresh if dashboard is visible
+            const dash = document.getElementById('page-dashboard');
+            if (dash && dash.style.display !== 'none') {
+                // loadDashboard(); // uncomment if you want live updates
+            }
+        });
+    </script>
+</body>
+</html>
